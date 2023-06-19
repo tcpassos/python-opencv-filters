@@ -1,6 +1,8 @@
 import cv2
 import sys
 from PySide6 import QtCore, QtGui, QtWidgets
+from PIL import Image
+import numpy as np
 
 class OpenCVFilters(QtWidgets.QWidget):
 
@@ -29,13 +31,17 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.filter_combo.addItem("Desfoque")
         self.filter_combo.addItem("Bordas")
         self.apply_filter_button = QtWidgets.QPushButton("Aplicar filtro")  # Botão para aplicar filtro
+        self.load_sticker_button = QtWidgets.QPushButton("Carregar Adesivo")
         self.main_layout = QtWidgets.QGridLayout()
+
+        self.sticker = None
 
         self.setup_ui()
 
         QtCore.QObject.connect(self.camera_video_button, QtCore.SIGNAL("clicked()"), self.camera_video)
         QtCore.QObject.connect(self.camera_button, QtCore.SIGNAL("clicked()"), self.camera)
         QtCore.QObject.connect(self.apply_filter_button, QtCore.SIGNAL("clicked()"), self.apply_filter)
+        QtCore.QObject.connect(self.load_sticker_button, QtCore.SIGNAL("clicked()"), self.load_sticker)
 
     def setup_ui(self):
         self.frame_label.setFixedSize(self.video_size)
@@ -45,6 +51,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.main_layout.addWidget(self.camera_button, 1, 1)
         self.main_layout.addWidget(self.filter_combo, 2, 0)
         self.main_layout.addWidget(self.apply_filter_button, 2, 1)
+        self.main_layout.addWidget(self.load_sticker_button, 3, 0, 1, 2)
 
         self.setLayout(self.main_layout)
 
@@ -80,17 +87,14 @@ class OpenCVFilters(QtWidgets.QWidget):
             self.apply_blur = False
             self.apply_edges = False
         elif selected_filter == "Cinza":
-            self.faceCascade = None
             self.convert_to_gray = True
             self.apply_blur = False
             self.apply_edges = False
         elif selected_filter == "Desfoque":
-            self.faceCascade = None
             self.convert_to_gray = False
             self.apply_blur = True
             self.apply_edges = False
         elif selected_filter == "Bordas":
-            self.faceCascade = None
             self.convert_to_gray = False
             self.apply_blur = False
             self.apply_edges = True
@@ -104,6 +108,27 @@ class OpenCVFilters(QtWidgets.QWidget):
         if not ret:
             return False
 
+        if self.faceCascade is not None:
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+            faces = self.faceCascade.detectMultiScale(
+                gray,
+                scaleFactor=1.2,
+                minNeighbors=5,
+                minSize=(60, 50)
+            )
+
+            if self.sticker is not None:
+                for (x, y, w, h) in faces:
+                    sticker = self.sticker.resize((int(w*4/3), int(h*4/3)))
+                    frame_pil = Image.fromarray(frame)
+                    frame_pil.paste(sticker, (int(x-(w/6)), int(y-(h/6))), sticker)
+                    frame = np.array(frame_pil)
+            else:
+                # Draw a rectangle around the faces
+                for (x, y, w, h) in faces:
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+
         if self.convert_to_gray:
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         elif self.apply_blur:
@@ -111,21 +136,10 @@ class OpenCVFilters(QtWidgets.QWidget):
         elif self.apply_edges:
             frame = cv2.Canny(frame, 100, 200)
 
-        if self.faceCascade is not None:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-            faces = self.faceCascade.detectMultiScale(
-                gray,
-                scaleFactor=1.1,
-                minNeighbors=5,
-                minSize=(30, 30)
-            )
-
-            # Draw a rectangle around the faces
-            for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        image = QtGui.QImage(frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
+        self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
 
         if not self.video:
             frame = cv2.flip(frame, 1)
@@ -134,6 +148,10 @@ class OpenCVFilters(QtWidgets.QWidget):
 
         image = QtGui.QImage(frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
         self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
+
+    def load_sticker(self):
+        path = QtWidgets.QFileDialog.getOpenFileName(filter="stickers (*.png)")
+        self.sticker = Image.open(path[0])
 
 def close_win(self):
     self.camera_capture.release()
