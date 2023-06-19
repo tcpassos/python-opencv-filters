@@ -30,6 +30,13 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.filter_combo.addItem("Cinza")
         self.filter_combo.addItem("Desfoque")
         self.filter_combo.addItem("Bordas")
+        self.filter_combo.addItem("Canal vermelho")        
+        self.filter_combo.addItem("Canal azul")
+        self.filter_combo.addItem("Canal verde")
+        self.filter_combo.addItem("Colorização")        
+        self.filter_combo.addItem("Inversão")
+        self.filter_combo.addItem("Binarização")        
+        self.filter_combo.addItem("Sepia")
         self.apply_filter_button = QtWidgets.QPushButton("Aplicar filtro")  # Botão para aplicar filtro
         self.load_sticker_button = QtWidgets.QPushButton("Carregar Adesivo")
         self.main_layout = QtWidgets.QGridLayout()
@@ -81,23 +88,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.frame_timer.start(int(1000 // fps))
     
     def apply_filter(self):
-        selected_filter = self.filter_combo.currentText()
-        if selected_filter == "Nenhum":
-            self.convert_to_gray = False
-            self.apply_blur = False
-            self.apply_edges = False
-        elif selected_filter == "Cinza":
-            self.convert_to_gray = True
-            self.apply_blur = False
-            self.apply_edges = False
-        elif selected_filter == "Desfoque":
-            self.convert_to_gray = False
-            self.apply_blur = True
-            self.apply_edges = False
-        elif selected_filter == "Bordas":
-            self.convert_to_gray = False
-            self.apply_blur = False
-            self.apply_edges = True
+        self.selected_filter = self.filter_combo.currentText()
 
     def display_video_stream(self):
         if not self.video:
@@ -129,12 +120,33 @@ class OpenCVFilters(QtWidgets.QWidget):
                 for (x, y, w, h) in faces:
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
-        if self.convert_to_gray:
+        channels = cv2.split(frame)
+        if self.selected_filter == "Cinza":
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        elif self.apply_blur:
+        elif self.selected_filter == "Desfoque":
             frame = cv2.GaussianBlur(frame, (11, 11), 0)
-        elif self.apply_edges:
+        elif self.selected_filter == "Bordas":
             frame = cv2.Canny(frame, 100, 200)
+        elif self.selected_filter == "Canal vermelho":
+            frame = cv2.merge([np.zeros_like(channels[0]), np.zeros_like(channels[1]), channels[2]])
+        elif self.selected_filter == "Canal azul":
+            frame = cv2.merge([channels[0], np.zeros_like(channels[1]), np.zeros_like(channels[2])])
+        elif self.selected_filter == "Canal verde":
+            frame = cv2.merge([np.zeros_like(channels[0]), channels[1], np.zeros_like(channels[2])])
+        elif self.selected_filter == "Colorização":
+            toColor = [200, 0, 0]
+            r = np.sum([channels[0] | toColor[0]], axis=0)
+            g = np.sum([channels[1] | toColor[1]], axis=0)
+            b = np.sum([channels[2] | toColor[2]], axis=0)
+            frame = cv2.merge([np.full_like(channels[0], r), np.full_like(channels[1], g), np.full_like(channels[2], b)])
+        elif self.selected_filter == "Inversão":
+            frame = cv2.bitwise_not(frame)
+        elif self.selected_filter == "Binarização":
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            l, frame = cv2.threshold(frame, 120, 255, cv2.THRESH_BINARY)
+        elif self.selected_filter == "Sepia":
+            sepia_matrix = np.array([[0.272, 0.534, 0.131], [0.349, 0.686, 0.168], [0.393, 0.769, 0.189]])
+            frame = cv2.transform(frame, sepia_matrix)
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
