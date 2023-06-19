@@ -17,13 +17,18 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.setup_camera(fps)
         self.fps = fps
 
+        cascPath = "haarcascade_frontalface_default.xml"
+        self.faceCascade = cv2.CascadeClassifier(cascPath)
+
         self.frame_label = QtWidgets.QLabel()
+        self.camera_button = QtWidgets.QPushButton("Usar webcam")
         self.camera_video_button = QtWidgets.QPushButton("Carregar vídeo")
         self.main_layout = QtWidgets.QGridLayout()
 
         self.setup_ui()
 
         QtCore.QObject.connect(self.camera_video_button, QtCore.SIGNAL("clicked()"), self.camera_video)
+        QtCore.QObject.connect(self.camera_button, QtCore.SIGNAL("clicked()"), self.camera)
 
     def setup_ui(self):
 
@@ -31,6 +36,7 @@ class OpenCVFilters(QtWidgets.QWidget):
 
         self.main_layout.addWidget(self.frame_label, 0, 0, 1, 2)
         self.main_layout.addWidget(self.camera_video_button, 1, 0, 1, 2)
+        self.main_layout.addWidget(self.camera_button, 2, 0, 1, 2)
 
         self.setLayout(self.main_layout)
 
@@ -39,10 +45,16 @@ class OpenCVFilters(QtWidgets.QWidget):
             path = QtWidgets.QFileDialog.getOpenFileName(filter="Videos (*.mp4)")
             if len(path[0]) > 0:
                 self.video_capture.open(path[0])
-                self.camera_video_button.setText("Usar webcam")
                 self.video = not self.video
         else:
-            self.camera_video_button.setText("Carregar vídeo")
+            self.video_capture.release()
+            self.video = not self.video
+
+    def camera(self):
+        if not self.video:
+                self.video_capture.open(2)
+                self.video = not self.video
+        else:
             self.video_capture.release()
             self.video = not self.video
 
@@ -62,6 +74,19 @@ class OpenCVFilters(QtWidgets.QWidget):
 
         if not ret:
             return False
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        faces = self.faceCascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(30, 30)
+        )
+
+        # Draw a rectangle around the faces
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
