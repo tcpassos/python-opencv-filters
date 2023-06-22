@@ -44,6 +44,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.filter_combo.addItem("Sepia")
         self.apply_filter_button = QtWidgets.QPushButton("Aplicar filtro")
         self.load_sticker_button = QtWidgets.QPushButton("Carregar Adesivo")
+        self.remove_sticker_button = QtWidgets.QPushButton("Remover Adesivo")
         self.main_layout = QtWidgets.QGridLayout()
 
         self.sticker = None
@@ -54,6 +55,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         QtCore.QObject.connect(self.camera_button, QtCore.SIGNAL("clicked()"), self.camera)
         QtCore.QObject.connect(self.apply_filter_button, QtCore.SIGNAL("clicked()"), self.apply_filter)
         QtCore.QObject.connect(self.load_sticker_button, QtCore.SIGNAL("clicked()"), self.load_sticker)
+        QtCore.QObject.connect(self.remove_sticker_button, QtCore.SIGNAL("clicked()"), self.remove_sticker)
 
     def setup_ui(self):
         self.frame_label.setFixedSize(self.video_size)
@@ -63,7 +65,8 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.main_layout.addWidget(self.camera_button, 1, 1)
         self.main_layout.addWidget(self.filter_combo, 2, 0)
         self.main_layout.addWidget(self.apply_filter_button, 2, 1)
-        self.main_layout.addWidget(self.load_sticker_button, 3, 0, 1, 2)
+        self.main_layout.addWidget(self.load_sticker_button, 3, 0)
+        self.main_layout.addWidget(self.remove_sticker_button, 3, 1)
 
         self.setLayout(self.main_layout)
 
@@ -120,9 +123,9 @@ class OpenCVFilters(QtWidgets.QWidget):
                     frame_pil = Image.fromarray(frame)
                     frame_pil.paste(sticker, (int(x-(w/6)), int(y-(h/6))), sticker)
                     frame = np.array(frame_pil)
-            else:
-                for (x, y, w, h) in faces:
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            #else:
+                #for (x, y, w, h) in faces:
+                    #cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
         channels = cv2.split(frame)
         if self.selected_filter == "Cinza":
@@ -168,6 +171,9 @@ class OpenCVFilters(QtWidgets.QWidget):
     def load_sticker(self):
         path = QtWidgets.QFileDialog.getOpenFileName(filter="Stickers (*.png)")
         self.sticker = Image.open(path[0])
+
+    def remove_sticker(self):
+        self.sticker = None
 
 def close_win(self):
     self.camera_capture.release()
