@@ -25,6 +25,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.camera_capture = cv2.VideoCapture(cv2.CAP_DSHOW)
         self.video_capture = cv2.VideoCapture()
         self.image = None
+        self.frame = None
         self.frame_timer = QtCore.QTimer()
         self.sticker = None
         self.capture_type = CaptureType.camera
@@ -52,9 +53,10 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.filter_combo.addItem("Inversão")
         self.filter_combo.addItem("Binarização")        
         self.filter_combo.addItem("Sepia")
-        self.apply_filter_button = QtWidgets.QPushButton("Aplicar filtro")
+        self.apply_filter_button = QtWidgets.QPushButton("Aplicar Filtro")
         self.load_sticker_button = QtWidgets.QPushButton("Carregar Adesivo")
         self.remove_sticker_button = QtWidgets.QPushButton("Remover Adesivo")
+        self.save_frame_button = QtWidgets.QPushButton("Salvar Imagem")
         self.main_layout = QtWidgets.QGridLayout()
         self.setup_ui()
 
@@ -64,6 +66,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         QtCore.QObject.connect(self.apply_filter_button, QtCore.SIGNAL("clicked()"), self.apply_filter)
         QtCore.QObject.connect(self.load_sticker_button, QtCore.SIGNAL("clicked()"), self.load_sticker)
         QtCore.QObject.connect(self.remove_sticker_button, QtCore.SIGNAL("clicked()"), self.remove_sticker)
+        QtCore.QObject.connect(self.save_frame_button, QtCore.SIGNAL("clicked()"), self.save_frame)
 
     def setup_ui(self):
         self.frame_label.setFixedSize(self.video_size)
@@ -75,6 +78,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.main_layout.addWidget(self.apply_filter_button, 2, 1)
         self.main_layout.addWidget(self.load_sticker_button, 3, 0)
         self.main_layout.addWidget(self.remove_sticker_button, 3, 1)
+        self.main_layout.addWidget(self.save_frame_button, 4, 0, 1, 2)
 
         self.setLayout(self.main_layout)
 
@@ -103,20 +107,31 @@ class OpenCVFilters(QtWidgets.QWidget):
     def apply_filter(self):
         self.selected_filter = self.filter_combo.currentText()
 
+    def save_frame(self):
+        if self.frame is not None:
+            current_frame = self.frame
+            dialog = QtWidgets.QFileDialog()
+            dialog.setFileMode(QtWidgets.QFileDialog.AnyFile)
+            dialog.setAcceptMode(QtWidgets.QFileDialog.AcceptSave)
+            dialog.setNameFilter("Images (*.png *.jpg *.jpeg)")
+            if dialog.exec():
+                file_path = dialog.selectedFiles()[0]
+                cv2.imwrite(file_path, cv2.cvtColor(current_frame, cv2.COLOR_BGR2RGB))
+
     def display_video_stream(self):
         if self.capture_type == CaptureType.camera:
-            ret, frame = self.camera_capture.read()
+            ret, self.frame = self.camera_capture.read()
         elif self.capture_type == CaptureType.video:
-            ret, frame = self.video_capture.read()
+            ret, self.frame = self.video_capture.read()
         elif self.capture_type == CaptureType.image:
-            frame = self.image
-            ret = frame is not None
+            self.frame = self.image
+            ret = self.frame is not None
 
         if not ret:
             return False
 
         if self.faceCascade is not None:
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
 
             faces = self.faceCascade.detectMultiScale(
                 gray,
@@ -128,52 +143,52 @@ class OpenCVFilters(QtWidgets.QWidget):
             if self.sticker is not None:
                 for (x, y, w, h) in faces:
                     sticker = self.sticker.resize((int(w*4/3), int(h*4/3)))
-                    frame_pil = Image.fromarray(frame)
+                    frame_pil = Image.fromarray(self.frame)
                     frame_pil.paste(sticker, (int(x-(w/6)), int(y-(h/6))), sticker)
-                    frame = np.array(frame_pil)
+                    self.frame = np.array(frame_pil)
             #else:
                 #for (x, y, w, h) in faces:
                     #cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
-        channels = cv2.split(frame)
+        channels = cv2.split(self.frame)
         if self.selected_filter == "Cinza":
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
         elif self.selected_filter == "Desfoque":
-            frame = cv2.GaussianBlur(frame, (11, 11), 0)
+            self.frame = cv2.GaussianBlur(self.frame, (11, 11), 0)
         elif self.selected_filter == "Bordas":
-            frame = cv2.Canny(frame, 100, 200)
+            self.frame = cv2.Canny(self.frame, 100, 200)
         elif self.selected_filter == "Canal vermelho":
-            frame = cv2.merge([np.zeros_like(channels[0]), np.zeros_like(channels[1]), channels[2]])
+            self.frame = cv2.merge([np.zeros_like(channels[0]), np.zeros_like(channels[1]), channels[2]])
         elif self.selected_filter == "Canal azul":
-            frame = cv2.merge([channels[0], np.zeros_like(channels[1]), np.zeros_like(channels[2])])
+            self.frame = cv2.merge([channels[0], np.zeros_like(channels[1]), np.zeros_like(channels[2])])
         elif self.selected_filter == "Canal verde":
-            frame = cv2.merge([np.zeros_like(channels[0]), channels[1], np.zeros_like(channels[2])])
+            self.frame = cv2.merge([np.zeros_like(channels[0]), channels[1], np.zeros_like(channels[2])])
         elif self.selected_filter == "Colorização":
             toColor = [200, 0, 0]
             r = np.sum([channels[0] | toColor[0]], axis=0)
             g = np.sum([channels[1] | toColor[1]], axis=0)
             b = np.sum([channels[2] | toColor[2]], axis=0)
-            frame = cv2.merge([np.full_like(channels[0], r), np.full_like(channels[1], g), np.full_like(channels[2], b)])
+            self.frame = cv2.merge([np.full_like(channels[0], r), np.full_like(channels[1], g), np.full_like(channels[2], b)])
         elif self.selected_filter == "Inversão":
-            frame = cv2.bitwise_not(frame)
+            self.frame = cv2.bitwise_not(self.frame)
         elif self.selected_filter == "Binarização":
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            l, frame = cv2.threshold(frame, 120, 255, cv2.THRESH_BINARY)
+            self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
+            l, self.frame = cv2.threshold(self.frame, 120, 255, cv2.THRESH_BINARY)
         elif self.selected_filter == "Sepia":
             sepia_matrix = np.array([[0.272, 0.534, 0.131], [0.349, 0.686, 0.168], [0.393, 0.769, 0.189]])
-            frame = cv2.transform(frame, sepia_matrix)
+            self.frame = cv2.transform(self.frame, sepia_matrix)
 
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
 
-        image = QtGui.QImage(frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
+        image = QtGui.QImage(self.frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
         self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
 
         if self.capture_type == CaptureType.camera:
-            frame = cv2.flip(frame, 1)
+            self.frame = cv2.flip(self.frame, 1)
         else:
-            frame = cv2.resize(frame, (self.video_size.width(), self.video_size.height()), interpolation=cv2.INTER_AREA)
+            self.frame = cv2.resize(self.frame, (self.video_size.width(), self.video_size.height()), interpolation=cv2.INTER_AREA)
 
-        image = QtGui.QImage(frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
+        image = QtGui.QImage(self.frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
         self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
 
     def load_sticker(self):
