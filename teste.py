@@ -11,6 +11,11 @@ class OpenCVFilters(QtWidgets.QWidget):
     def __init__(self, width=640, height=480, fps=30):
         QtWidgets.QWidget.__init__(self)
 
+        # Configura janela
+        self.setWindowTitle("Filtros OpenCV")
+        icon = QtGui.QIcon("icon.png")
+        self.setWindowIcon(icon)
+
         self.video_size = QtCore.QSize(width, height)
         self.camera_capture = cv2.VideoCapture(cv2.CAP_DSHOW)
         self.video_capture = cv2.VideoCapture()
@@ -25,7 +30,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.frame_label = QtWidgets.QLabel()
         self.camera_button = QtWidgets.QPushButton("Usar webcam")
         self.camera_video_button = QtWidgets.QPushButton("Carregar vídeo")
-        self.filter_combo = QtWidgets.QComboBox()  # ComboBox para seleção de filtros
+        self.filter_combo = QtWidgets.QComboBox()
         self.filter_combo.addItem("Nenhum")
         self.filter_combo.addItem("Cinza")
         self.filter_combo.addItem("Desfoque")
@@ -37,7 +42,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.filter_combo.addItem("Inversão")
         self.filter_combo.addItem("Binarização")        
         self.filter_combo.addItem("Sepia")
-        self.apply_filter_button = QtWidgets.QPushButton("Aplicar filtro")  # Botão para aplicar filtro
+        self.apply_filter_button = QtWidgets.QPushButton("Aplicar filtro")
         self.load_sticker_button = QtWidgets.QPushButton("Carregar Adesivo")
         self.main_layout = QtWidgets.QGridLayout()
 
@@ -116,7 +121,6 @@ class OpenCVFilters(QtWidgets.QWidget):
                     frame_pil.paste(sticker, (int(x-(w/6)), int(y-(h/6))), sticker)
                     frame = np.array(frame_pil)
             else:
-                # Draw a rectangle around the faces
                 for (x, y, w, h) in faces:
                     cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
@@ -162,7 +166,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
 
     def load_sticker(self):
-        path = QtWidgets.QFileDialog.getOpenFileName(filter="stickers (*.png)")
+        path = QtWidgets.QFileDialog.getOpenFileName(filter="Stickers (*.png)")
         self.sticker = Image.open(path[0])
 
 def close_win(self):
