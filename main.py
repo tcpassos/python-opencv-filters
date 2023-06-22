@@ -19,6 +19,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.setWindowTitle("Filtros OpenCV")
         icon = QtGui.QIcon("icon.png")
         self.setWindowIcon(icon)
+        self.setMouseTracking(True)
 
         # Atributos da classe
         self.video_size = QtCore.QSize(width, height)
@@ -27,9 +28,10 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.image = None
         self.frame = None
         self.frame_timer = QtCore.QTimer()
-        self.sticker = None
+        self.face_sticker = None
         self.capture_type = CaptureType.camera
 
+        # Configuração da câmera
         self.setup_camera(fps)
         self.fps = fps
 
@@ -41,6 +43,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.frame_label = QtWidgets.QLabel()
         self.camera_button = QtWidgets.QPushButton("Usar webcam")
         self.capture_file_button = QtWidgets.QPushButton("Carregar arquivo")
+
         self.filter_combo = QtWidgets.QComboBox()
         self.filter_combo.addItem("Nenhum")
         self.filter_combo.addItem("Cinza")
@@ -54,8 +57,25 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.filter_combo.addItem("Binarização")        
         self.filter_combo.addItem("Sepia")
         self.apply_filter_button = QtWidgets.QPushButton("Aplicar Filtro")
-        self.load_sticker_button = QtWidgets.QPushButton("Carregar Adesivo")
-        self.remove_sticker_button = QtWidgets.QPushButton("Remover Adesivo")
+        self.filter_layout = QtWidgets.QGridLayout()
+        self.filter_layout.addWidget(self.filter_combo, 0, 0)
+        self.filter_layout.addWidget(self.apply_filter_button, 0, 1)
+        self.filter_groupbox = QtWidgets.QGroupBox("Filtros")
+        self.filter_groupbox.setLayout(self.filter_layout)
+
+        self.sticker_combo = QtWidgets.QComboBox()
+        self.sticker_combo.setPlaceholderText("[Selecione um adesivo]")
+        self.sticker_combo.addItem("Teste")
+        self.load_face_sticker_button = QtWidgets.QPushButton("Carregar Máscara")
+        self.remove_stickers_button = QtWidgets.QPushButton("Remover Adesivos")
+        self.sticker = QtWidgets.QGridLayout()
+        self.sticker_layout = QtWidgets.QGridLayout()
+        self.sticker_layout.addWidget(self.sticker_combo, 0, 0)
+        self.sticker_layout.addWidget(self.load_face_sticker_button, 0, 1)
+        self.sticker_layout.addWidget(self.remove_stickers_button, 1, 0, 1, 2)
+        self.sticker_groupbox = QtWidgets.QGroupBox("Adesivos")
+        self.sticker_groupbox.setLayout(self.sticker_layout)
+
         self.save_frame_button = QtWidgets.QPushButton("Salvar Imagem")
         self.main_layout = QtWidgets.QGridLayout()
         self.setup_ui()
@@ -64,22 +84,22 @@ class OpenCVFilters(QtWidgets.QWidget):
         QtCore.QObject.connect(self.capture_file_button, QtCore.SIGNAL("clicked()"), self.capture_file)
         QtCore.QObject.connect(self.camera_button, QtCore.SIGNAL("clicked()"), self.capture_camera)
         QtCore.QObject.connect(self.apply_filter_button, QtCore.SIGNAL("clicked()"), self.apply_filter)
-        QtCore.QObject.connect(self.load_sticker_button, QtCore.SIGNAL("clicked()"), self.load_sticker)
-        QtCore.QObject.connect(self.remove_sticker_button, QtCore.SIGNAL("clicked()"), self.remove_sticker)
+        QtCore.QObject.connect(self.load_face_sticker_button, QtCore.SIGNAL("clicked()"), self.load_face_sticker)
+        QtCore.QObject.connect(self.remove_stickers_button, QtCore.SIGNAL("clicked()"), self.remove_stickers)
         QtCore.QObject.connect(self.save_frame_button, QtCore.SIGNAL("clicked()"), self.save_frame)
+
+        # Configura o callback de renderização do frame
+        self.frame_timer.timeout.connect(self.display_video_stream)
+        self.frame_timer.start(int(1000 // fps))
 
     def setup_ui(self):
         self.frame_label.setFixedSize(self.video_size)
-
         self.main_layout.addWidget(self.frame_label, 0, 0, 1, 2)
         self.main_layout.addWidget(self.capture_file_button, 1, 0)
         self.main_layout.addWidget(self.camera_button, 1, 1)
-        self.main_layout.addWidget(self.filter_combo, 2, 0)
-        self.main_layout.addWidget(self.apply_filter_button, 2, 1)
-        self.main_layout.addWidget(self.load_sticker_button, 3, 0)
-        self.main_layout.addWidget(self.remove_sticker_button, 3, 1)
+        self.main_layout.addWidget(self.filter_groupbox, 2, 0, 1, 2)
+        self.main_layout.addWidget(self.sticker_groupbox, 3, 0, 1, 2)
         self.main_layout.addWidget(self.save_frame_button, 4, 0, 1, 2)
-
         self.setLayout(self.main_layout)
 
     def capture_file(self):
@@ -100,9 +120,6 @@ class OpenCVFilters(QtWidgets.QWidget):
     def setup_camera(self, fps):
         self.camera_capture.set(3, self.video_size.width())
         self.camera_capture.set(4, self.video_size.height())
-
-        self.frame_timer.timeout.connect(self.display_video_stream)
-        self.frame_timer.start(int(1000 // fps))
     
     def apply_filter(self):
         self.selected_filter = self.filter_combo.currentText()
@@ -118,6 +135,15 @@ class OpenCVFilters(QtWidgets.QWidget):
                 file_path = dialog.selectedFiles()[0]
                 cv2.imwrite(file_path, cv2.cvtColor(current_frame, cv2.COLOR_BGR2RGB))
 
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            x = event.x()
+            y = event.y()
+            print('x={:d}, y={:d}'.format(x, y))
+
+    # ============================================================================================================
+    # Renderização do frame
+    # ============================================================================================================
     def display_video_stream(self):
         if self.capture_type == CaptureType.camera:
             ret, self.frame = self.camera_capture.read()
@@ -140,9 +166,9 @@ class OpenCVFilters(QtWidgets.QWidget):
                 minSize=(60, 50)
             )
 
-            if self.sticker is not None:
+            if self.face_sticker is not None:
                 for (x, y, w, h) in faces:
-                    sticker = self.sticker.resize((int(w*4/3), int(h*4/3)))
+                    sticker = self.face_sticker.resize((int(w*4/3), int(h*4/3)))
                     frame_pil = Image.fromarray(self.frame)
                     frame_pil.paste(sticker, (int(x-(w/6)), int(y-(h/6))), sticker)
                     self.frame = np.array(frame_pil)
@@ -191,12 +217,12 @@ class OpenCVFilters(QtWidgets.QWidget):
         image = QtGui.QImage(self.frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
         self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
 
-    def load_sticker(self):
+    def load_face_sticker(self):
         path = QtWidgets.QFileDialog.getOpenFileName(filter="Stickers (*.png)")
-        self.sticker = Image.open(path[0])
+        self.face_sticker = Image.open(path[0])
 
-    def remove_sticker(self):
-        self.sticker = None
+    def remove_stickers(self):
+        self.face_sticker = None
 
 def close_win(self):
     self.camera_capture.release()
