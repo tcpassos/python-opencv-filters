@@ -1,12 +1,16 @@
 import cv2
 import sys
+import enum
 from PySide6 import QtCore, QtGui, QtWidgets
 from PIL import Image
 import numpy as np
 
-class OpenCVFilters(QtWidgets.QWidget):
+class CaptureType(enum.Enum):
+    camera = 1
+    video = 2
+    image = 3
 
-    video = False
+class OpenCVFilters(QtWidgets.QWidget):
 
     def __init__(self, width=640, height=480, fps=30):
         QtWidgets.QWidget.__init__(self)
@@ -16,20 +20,26 @@ class OpenCVFilters(QtWidgets.QWidget):
         icon = QtGui.QIcon("icon.png")
         self.setWindowIcon(icon)
 
+        # Atributos da classe
         self.video_size = QtCore.QSize(width, height)
         self.camera_capture = cv2.VideoCapture(cv2.CAP_DSHOW)
         self.video_capture = cv2.VideoCapture()
+        self.image = None
         self.frame_timer = QtCore.QTimer()
+        self.sticker = None
+        self.capture_type = CaptureType.camera
 
         self.setup_camera(fps)
         self.fps = fps
 
+        # Configura o classificador de rostos
         cascPath = "haarcascade_frontalface_default.xml"
         self.faceCascade = cv2.CascadeClassifier(cascPath)
 
+        # Cria os componentes da janela
         self.frame_label = QtWidgets.QLabel()
         self.camera_button = QtWidgets.QPushButton("Usar webcam")
-        self.camera_video_button = QtWidgets.QPushButton("Carregar vídeo")
+        self.capture_file_button = QtWidgets.QPushButton("Carregar arquivo")
         self.filter_combo = QtWidgets.QComboBox()
         self.filter_combo.addItem("Nenhum")
         self.filter_combo.addItem("Cinza")
@@ -46,13 +56,11 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.load_sticker_button = QtWidgets.QPushButton("Carregar Adesivo")
         self.remove_sticker_button = QtWidgets.QPushButton("Remover Adesivo")
         self.main_layout = QtWidgets.QGridLayout()
-
-        self.sticker = None
-
         self.setup_ui()
 
-        QtCore.QObject.connect(self.camera_video_button, QtCore.SIGNAL("clicked()"), self.camera_video)
-        QtCore.QObject.connect(self.camera_button, QtCore.SIGNAL("clicked()"), self.camera)
+        # Define os callbacks dos botões
+        QtCore.QObject.connect(self.capture_file_button, QtCore.SIGNAL("clicked()"), self.capture_file)
+        QtCore.QObject.connect(self.camera_button, QtCore.SIGNAL("clicked()"), self.capture_camera)
         QtCore.QObject.connect(self.apply_filter_button, QtCore.SIGNAL("clicked()"), self.apply_filter)
         QtCore.QObject.connect(self.load_sticker_button, QtCore.SIGNAL("clicked()"), self.load_sticker)
         QtCore.QObject.connect(self.remove_sticker_button, QtCore.SIGNAL("clicked()"), self.remove_sticker)
@@ -61,7 +69,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.frame_label.setFixedSize(self.video_size)
 
         self.main_layout.addWidget(self.frame_label, 0, 0, 1, 2)
-        self.main_layout.addWidget(self.camera_video_button, 1, 0)
+        self.main_layout.addWidget(self.capture_file_button, 1, 0)
         self.main_layout.addWidget(self.camera_button, 1, 1)
         self.main_layout.addWidget(self.filter_combo, 2, 0)
         self.main_layout.addWidget(self.apply_filter_button, 2, 1)
@@ -70,23 +78,20 @@ class OpenCVFilters(QtWidgets.QWidget):
 
         self.setLayout(self.main_layout)
 
-    def camera_video(self):
-        if not self.video:
-            path = QtWidgets.QFileDialog.getOpenFileName(filter="Videos (*.mp4)")
-            if len(path[0]) > 0:
-                self.video_capture.open(path[0])
-                self.video = not self.video
-        else:
-            self.video_capture.release()
-            self.video = not self.video
+    def capture_file(self):
+        self.video_capture.release()
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(filter="Videos (*.mp4);;Images (*.png *.jpg *.jpeg)")
+        if path.endswith(('.png', '.jpg', '.jpeg')):
+            self.capture_type = CaptureType.image
+            self.image = cv2.imread(path)
+        elif path.endswith('.mp4'):
+            self.capture_type = CaptureType.video
+            self.video_capture.open(path)
 
-    def camera(self):
-        if not self.video:
-            self.video_capture.open(2)
-            self.video = not self.video
-        else:
-            self.video_capture.release()
-            self.video = not self.video
+    def capture_camera(self):
+        self.video_capture.release()
+        self.video_capture.open(2)
+        self.capture_type = CaptureType.camera
 
     def setup_camera(self, fps):
         self.camera_capture.set(3, self.video_size.width())
@@ -99,10 +104,13 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.selected_filter = self.filter_combo.currentText()
 
     def display_video_stream(self):
-        if not self.video:
+        if self.capture_type == CaptureType.camera:
             ret, frame = self.camera_capture.read()
-        else:
+        elif self.capture_type == CaptureType.video:
             ret, frame = self.video_capture.read()
+        elif self.capture_type == CaptureType.image:
+            frame = self.image
+            ret = frame is not None
 
         if not ret:
             return False
@@ -160,7 +168,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         image = QtGui.QImage(frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
         self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
 
-        if not self.video:
+        if self.capture_type == CaptureType.camera:
             frame = cv2.flip(frame, 1)
         else:
             frame = cv2.resize(frame, (self.video_size.width(), self.video_size.height()), interpolation=cv2.INTER_AREA)
