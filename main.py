@@ -11,9 +11,10 @@ class CaptureType(enum.Enum):
     image = 3
 
 class Sticker:
-    def __init__(self, x, y, identifier):
+    def __init__(self, x, y, path, identifier):
         self.x = x
         self.y = y
+        self.img = Image.open(path[0])
         self.identifier = identifier
 
 class OpenCVFilters(QtWidgets.QWidget):
@@ -46,6 +47,12 @@ class OpenCVFilters(QtWidgets.QWidget):
         cascPath = "haarcascade_frontalface_default.xml"
         self.faceCascade = cv2.CascadeClassifier(cascPath)
 
+        # Inicia valores para filtros
+        self.rvalue = 0
+        self.gvalue = 0
+        self.bvalue = 0
+        self.limitvalue = 0
+
         # Cria os componentes da janela
         self.frame_label = QtWidgets.QLabel()
         self.camera_button = QtWidgets.QPushButton("Usar webcam")
@@ -70,22 +77,81 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.filter_groupbox = QtWidgets.QGroupBox("Filtros")
         self.filter_groupbox.setLayout(self.filter_layout)
 
-        self.sticker_combo = QtWidgets.QComboBox()
-        self.sticker_combo.setPlaceholderText("[Selecione um adesivo]")
-        self.sticker_combo.addItem("Teste")
+        # Cria componentes de controle dos filtros
+        self.control_bslider = QtWidgets.QSlider(QtCore.Qt.Horizontal)      
+        self.control_bslider.setMinimum(0)
+        self.control_bslider.setMaximum(255)
+        self.control_bslider.setTickInterval(1)        
+        self.control_bslider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.control_blabel = QtWidgets.QLabel()
+        self.control_blabel.setText(f"B: {self.bvalue}")
+        self.control_blabel.setAlignment(QtCore.Qt.AlignCenter)     
+        self.control_gslider = QtWidgets.QSlider(QtCore.Qt.Horizontal)      
+        self.control_gslider.setMinimum(0)
+        self.control_gslider.setMaximum(255)
+        self.control_gslider.setTickInterval(1)        
+        self.control_gslider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.control_glabel = QtWidgets.QLabel()
+        self.control_glabel.setText(f"G: {self.gvalue}")
+        self.control_glabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.control_rslider = QtWidgets.QSlider(QtCore.Qt.Horizontal)      
+        self.control_rslider.setMinimum(0)
+        self.control_rslider.setMaximum(255)
+        self.control_rslider.setTickInterval(1)        
+        self.control_rslider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.control_rlabel = QtWidgets.QLabel()
+        self.control_rlabel.setText(f"R: {self.rvalue}")
+        self.control_rlabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.control_limitslider = QtWidgets.QSlider(QtCore.Qt.Horizontal)      
+        self.control_limitslider.setMinimum(0)
+        self.control_limitslider.setMaximum(255)
+        self.control_limitslider.setTickInterval(1)        
+        self.control_limitslider.setTickPosition(QtWidgets.QSlider.TicksBelow)
+        self.control_limitlabel = QtWidgets.QLabel()
+        self.control_limitlabel.setText(f"Limiar: {self.limitvalue}")
+        self.control_limitlabel.setAlignment(QtCore.Qt.AlignCenter)
+        self.control_layout = QtWidgets.QGridLayout()
+        self.control_layout.addWidget(self.control_rlabel, 0, 0)
+        self.control_layout.addWidget(self.control_rslider, 1, 0)   
+        self.control_layout.addWidget(self.control_glabel, 0, 1)
+        self.control_layout.addWidget(self.control_gslider, 1, 1)
+        self.control_layout.addWidget(self.control_blabel, 0, 2)
+        self.control_layout.addWidget(self.control_bslider, 1, 2)        
+        self.control_layout.addWidget(self.control_limitlabel, 0, 0)
+        self.control_layout.addWidget(self.control_limitslider, 1, 0) 
+        self.control_groupbox = QtWidgets.QGroupBox("Controle")
+        self.control_groupbox.setLayout(self.control_layout)  
+
+        # Esconde campos específico de determinados filtros
+        self.control_rlabel.hide()
+        self.control_rslider.hide()
+        self.control_glabel.hide()
+        self.control_gslider.hide()
+        self.control_blabel.hide()
+        self.control_bslider.hide()        
+        self.control_blabel.hide()
+        self.control_bslider.hide()   
+        self.control_limitlabel.hide()
+        self.control_limitslider.hide()
+
         self.load_face_sticker_button = QtWidgets.QPushButton("Carregar Máscara")
         self.remove_stickers_button = QtWidgets.QPushButton("Remover Adesivos")
         self.sticker = QtWidgets.QGridLayout()
         self.sticker_layout = QtWidgets.QGridLayout()
-        self.sticker_layout.addWidget(self.sticker_combo, 0, 0)
-        self.sticker_layout.addWidget(self.load_face_sticker_button, 0, 1)
-        self.sticker_layout.addWidget(self.remove_stickers_button, 1, 0, 1, 2)
-        self.sticker_groupbox = QtWidgets.QGroupBox("Adesivos")
+        self.sticker_layout.addWidget(self.load_face_sticker_button, 0, 0)
+        self.sticker_layout.addWidget(self.remove_stickers_button, 1, 0)
+        self.sticker_groupbox = QtWidgets.QGroupBox("Adesivos (Clique na imagem para adicionar adesivos)")
         self.sticker_groupbox.setLayout(self.sticker_layout)
 
         self.save_frame_button = QtWidgets.QPushButton("Salvar Imagem")
         self.main_layout = QtWidgets.QGridLayout()
         self.setup_ui()
+
+        # Define os callbacks dos sliders
+        self.control_bslider.valueChanged.connect(self.set_bvalue)
+        self.control_gslider.valueChanged.connect(self.set_gvalue)
+        self.control_rslider.valueChanged.connect(self.set_rvalue)
+        self.control_limitslider.valueChanged.connect(self.set_limitvalue)
 
         # Define os callbacks dos botões
         QtCore.QObject.connect(self.capture_file_button, QtCore.SIGNAL("clicked()"), self.capture_file)
@@ -105,8 +171,9 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.main_layout.addWidget(self.capture_file_button, 1, 0)
         self.main_layout.addWidget(self.camera_button, 1, 1)
         self.main_layout.addWidget(self.filter_groupbox, 2, 0, 1, 2)
-        self.main_layout.addWidget(self.sticker_groupbox, 3, 0, 1, 2)
-        self.main_layout.addWidget(self.save_frame_button, 4, 0, 1, 2)
+        self.main_layout.addWidget(self.control_groupbox, 3, 0, 1, 2)
+        self.main_layout.addWidget(self.sticker_groupbox, 4, 0, 1, 2)
+        self.main_layout.addWidget(self.save_frame_button, 5, 0, 1, 2)
         self.setLayout(self.main_layout)
 
     def capture_file(self):
@@ -128,8 +195,28 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.camera_capture.set(3, self.video_size.width())
         self.camera_capture.set(4, self.video_size.height())
     
-    def apply_filter(self):
-        self.selected_filter = self.filter_combo.currentText()
+    def apply_filter(self):           
+        self.selected_filter = self.filter_combo.currentText()        
+        if(self.selected_filter == "Colorização"):
+            self.control_rlabel.show()
+            self.control_rslider.show()
+            self.control_glabel.show()
+            self.control_gslider.show()
+            self.control_blabel.show()
+            self.control_bslider.show()
+        else:
+            self.control_rlabel.hide()
+            self.control_rslider.hide()
+            self.control_glabel.hide()
+            self.control_gslider.hide()
+            self.control_blabel.hide()
+            self.control_bslider.hide()
+        if(self.selected_filter == "Binarização"):
+            self.control_limitlabel.show()
+            self.control_limitslider.show()
+        else:
+            self.control_limitlabel.hide()
+            self.control_limitslider.hide()
 
     def save_frame(self):
         if self.frame is not None:
@@ -143,10 +230,28 @@ class OpenCVFilters(QtWidgets.QWidget):
                 cv2.imwrite(file_path, cv2.cvtColor(current_frame, cv2.COLOR_BGR2RGB))
 
     def mousePressEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton:
-            x = event.x()
-            y = event.y()
-            self.stickers.append(Sticker(x, y, self.sticker_combo.currentText()))
+        if event.button() == QtCore.Qt.LeftButton and self.valid_x(event.x()) and self.valid_y(event.y()):
+            path = QtWidgets.QFileDialog.getOpenFileName(filter="Stickers (*.png)", dir=".\Stickers")
+            if(path[0] != ''):
+                x = event.x()
+                y = event.y()
+                self.stickers.append(Sticker(x, y, path, path[0].split('/').pop()))
+
+    def set_bvalue(self, value):
+        self.bvalue = value
+        self.control_blabel.setText(f"B: {value}")
+
+    def set_gvalue(self, value):
+        self.gvalue = value
+        self.control_glabel.setText(f"G: {value}")
+
+    def set_rvalue(self, value):
+        self.rvalue = value              
+        self.control_rlabel.setText(f"R: {value}")
+        
+    def set_limitvalue(self, value):
+        self.limitvalue = value              
+        self.control_limitlabel.setText(f"Limiar: {value}")
 
     # ============================================================================================================
     # Renderização do frame
@@ -162,7 +267,8 @@ class OpenCVFilters(QtWidgets.QWidget):
 
         if not ret:
             return False
-
+                
+        showMask = False
         if self.faceCascade is not None:
             gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
 
@@ -173,18 +279,9 @@ class OpenCVFilters(QtWidgets.QWidget):
                 minNeighbors=5,
                 minSize=(60, 50)
             )
+            showMask = True
 
-            # Desenha o sticker do rosto
-            if self.face_sticker is not None:
-                for (x, y, w, h) in faces:
-                    sticker = self.face_sticker.resize((int(w*4/3), int(h*4/3)))
-                    frame_pil = Image.fromarray(self.frame)
-                    frame_pil.paste(sticker, (int(x-(w/6)), int(y-(h/6))), sticker)
-                    self.frame = np.array(frame_pil)
-            #else:
-                #for (x, y, w, h) in faces:
-                    #cv2.rectangle(self.frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
+        # Aplica o filtro selecionado
         channels = cv2.split(self.frame)
         if self.selected_filter == "Cinza":
             self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
@@ -199,7 +296,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         elif self.selected_filter == "Canal verde":
             self.frame = cv2.merge([np.zeros_like(channels[0]), channels[1], np.zeros_like(channels[2])])
         elif self.selected_filter == "Colorização":
-            toColor = [200, 0, 0]
+            toColor = [self.bvalue, self.gvalue, self.rvalue]
             r = np.sum([channels[0] | toColor[0]], axis=0)
             g = np.sum([channels[1] | toColor[1]], axis=0)
             b = np.sum([channels[2] | toColor[2]], axis=0)
@@ -208,10 +305,21 @@ class OpenCVFilters(QtWidgets.QWidget):
             self.frame = cv2.bitwise_not(self.frame)
         elif self.selected_filter == "Binarização":
             self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
-            l, self.frame = cv2.threshold(self.frame, 120, 255, cv2.THRESH_BINARY)
+            l, self.frame = cv2.threshold(self.frame, self.limitvalue, 255, cv2.THRESH_BINARY)
         elif self.selected_filter == "Sepia":
             sepia_matrix = np.array([[0.272, 0.534, 0.131], [0.349, 0.686, 0.168], [0.393, 0.769, 0.189]])
-            self.frame = cv2.transform(self.frame, sepia_matrix)
+            self.frame = cv2.transform(self.frame, sepia_matrix)        
+
+        # Desenha o sticker do rosto
+        if showMask and self.face_sticker is not None:
+            for (x, y, w, h) in faces:
+                sticker = self.face_sticker.resize((int(w*4/3), int(h*4/3)))
+                frame_pil = Image.fromarray(self.frame)
+                frame_pil.paste(sticker, (int(x-(w/6)), int(y-(h/6))), sticker)
+                self.frame = np.array(frame_pil)
+        #else:
+            #for (x, y, w, h) in faces:
+                #cv2.rectangle(self.frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
         self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
 
@@ -224,19 +332,38 @@ class OpenCVFilters(QtWidgets.QWidget):
             self.frame = cv2.resize(self.frame, (self.video_size.width(), self.video_size.height()), interpolation=cv2.INTER_AREA)
         
         # Desenha os stickers
-        for sticker in self.stickers:
-            cv2.circle(self.frame, (sticker.x, sticker.y), 5, (255, 0, 0), -1)
+        for sticker in self.stickers:   
+            if(sticker.img.size[0] > sticker.img.size[1]):
+                x = 120
+                y = int(sticker.img.size[1]*x/sticker.img.size[0])
+            else:
+                y = 120
+                x = int(sticker.img.size[0]*y/sticker.img.size[1])
+            stc = sticker.img.resize((x, y))
+            frame_pil = Image.fromarray(self.frame)
+            try:
+                frame_pil.paste(stc, (sticker.x-int(x/2), sticker.y-int(y/2)), stc)
+            except:
+                frame_pil.paste(stc, (sticker.x-int(x/2), sticker.y-int(y/2)))
+            self.frame = np.array(frame_pil)
 
         image = QtGui.QImage(self.frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
         self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
 
     def load_face_sticker(self):
-        path = QtWidgets.QFileDialog.getOpenFileName(filter="Stickers (*.png)")
+        path = QtWidgets.QFileDialog.getOpenFileName(filter="Stickers (*.png)", dir="./Masks")
         self.face_sticker = Image.open(path[0])
 
     def remove_stickers(self):
         self.face_sticker = None
         self.stickers.clear()
+
+    def valid_x(e, x):
+        return x > 0 and x < 640
+    
+    def valid_y(e, y):
+        return y > 0 and y < 480
+
 
 def close_win(self):
     self.camera_capture.release()
