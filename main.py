@@ -146,7 +146,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         if event.button() == QtCore.Qt.LeftButton:
             x = event.x()
             y = event.y()
-            self.stickers.append(Sticker(x, y, 'teste'))
+            self.stickers.append(Sticker(x, y, self.sticker_combo.currentText()))
 
     # ============================================================================================================
     # Renderização do frame
