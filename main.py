@@ -10,6 +10,12 @@ class CaptureType(enum.Enum):
     video = 2
     image = 3
 
+class Sticker:
+    def __init__(self, x, y, identifier):
+        self.x = x
+        self.y = y
+        self.identifier = identifier
+
 class OpenCVFilters(QtWidgets.QWidget):
 
     def __init__(self, width=640, height=480, fps=30):
@@ -29,6 +35,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.frame = None
         self.frame_timer = QtCore.QTimer()
         self.face_sticker = None
+        self.stickers = []
         self.capture_type = CaptureType.camera
 
         # Configuração da câmera
@@ -139,7 +146,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         if event.button() == QtCore.Qt.LeftButton:
             x = event.x()
             y = event.y()
-            print('x={:d}, y={:d}'.format(x, y))
+            self.stickers.append(Sticker(x, y, 'teste'))
 
     # ============================================================================================================
     # Renderização do frame
@@ -159,6 +166,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         if self.faceCascade is not None:
             gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
 
+            # Detecta os rostos no frame
             faces = self.faceCascade.detectMultiScale(
                 gray,
                 scaleFactor=1.2,
@@ -166,6 +174,7 @@ class OpenCVFilters(QtWidgets.QWidget):
                 minSize=(60, 50)
             )
 
+            # Desenha o sticker do rosto
             if self.face_sticker is not None:
                 for (x, y, w, h) in faces:
                     sticker = self.face_sticker.resize((int(w*4/3), int(h*4/3)))
@@ -174,7 +183,7 @@ class OpenCVFilters(QtWidgets.QWidget):
                     self.frame = np.array(frame_pil)
             #else:
                 #for (x, y, w, h) in faces:
-                    #cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                    #cv2.rectangle(self.frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
         channels = cv2.split(self.frame)
         if self.selected_filter == "Cinza":
@@ -213,6 +222,10 @@ class OpenCVFilters(QtWidgets.QWidget):
             self.frame = cv2.flip(self.frame, 1)
         else:
             self.frame = cv2.resize(self.frame, (self.video_size.width(), self.video_size.height()), interpolation=cv2.INTER_AREA)
+        
+        # Desenha os stickers
+        for sticker in self.stickers:
+            cv2.circle(self.frame, (sticker.x, sticker.y), 5, (255, 0, 0), -1)
 
         image = QtGui.QImage(self.frame, self.video_size.width(), self.video_size.height(), self.video_size.width() * 3, QtGui.QImage.Format_RGB888)
         self.frame_label.setPixmap(QtGui.QPixmap.fromImage(image))
@@ -223,6 +236,7 @@ class OpenCVFilters(QtWidgets.QWidget):
 
     def remove_stickers(self):
         self.face_sticker = None
+        self.stickers.clear()
 
 def close_win(self):
     self.camera_capture.release()
