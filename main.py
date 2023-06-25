@@ -5,11 +5,13 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from PIL import Image
 import numpy as np
 
+# Tipo de captura a ser processada
 class CaptureType(enum.Enum):
     camera = 1
     video = 2
     image = 3
 
+# Classe com os atributos de um adesivo
 class Sticker:
     def __init__(self, x, y, path, identifier):
         self.x = x
@@ -17,6 +19,7 @@ class Sticker:
         self.img = Image.open(path[0])
         self.identifier = identifier
 
+# Classe principal com o processamento de imagens
 class OpenCVFilters(QtWidgets.QWidget):
 
     def __init__(self, width=640, height=480, fps=30):
@@ -32,12 +35,12 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.video_size = QtCore.QSize(width, height)
         self.camera_capture = cv2.VideoCapture(cv2.CAP_DSHOW)
         self.video_capture = cv2.VideoCapture()
+        self.capture_type = CaptureType.camera
         self.image = None
         self.frame = None
         self.frame_timer = QtCore.QTimer()
         self.face_sticker = None
         self.stickers = []
-        self.capture_type = CaptureType.camera
 
         # Configuração da câmera
         self.setup_camera(fps)
@@ -178,7 +181,7 @@ class OpenCVFilters(QtWidgets.QWidget):
 
     def capture_file(self):
         self.video_capture.release()
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(filter="Videos (*.mp4);;Images (*.png *.jpg *.jpeg)")
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(filter="Videos (*.mp4);;Imagens (*.png *.jpg *.jpeg)")
         if path.endswith(('.png', '.jpg', '.jpeg')):
             self.capture_type = CaptureType.image
             self.image = cv2.imread(path)
@@ -197,7 +200,11 @@ class OpenCVFilters(QtWidgets.QWidget):
     
     def apply_filter(self):           
         self.selected_filter = self.filter_combo.currentText()        
-        if(self.selected_filter == "Colorização"):
+        self.set_rgb_controls_visible(self.selected_filter == "Colorização")
+        self.set_threshold_controls_visible(self.selected_filter == "Binarização")
+    
+    def set_rgb_controls_visible(self, visible):
+        if (visible):
             self.control_rlabel.show()
             self.control_rslider.show()
             self.control_glabel.show()
@@ -211,7 +218,9 @@ class OpenCVFilters(QtWidgets.QWidget):
             self.control_gslider.hide()
             self.control_blabel.hide()
             self.control_bslider.hide()
-        if(self.selected_filter == "Binarização"):
+
+    def set_threshold_controls_visible(self, visible):
+        if(visible):
             self.control_limitlabel.show()
             self.control_limitslider.show()
         else:
