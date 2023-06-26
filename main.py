@@ -43,8 +43,7 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.stickers = []
 
         # Configuração da câmera
-        self.setup_camera(fps)
-        self.fps = fps
+        self.setup_camera()
 
         # Configura o classificador de rostos
         cascPath = "haarcascade_frontalface_default.xml"
@@ -186,38 +185,30 @@ class OpenCVFilters(QtWidgets.QWidget):
         self.video_capture.open(2)
         self.capture_type = CaptureType.camera
 
-    def setup_camera(self, fps):
+    def setup_camera(self):
         self.camera_capture.set(3, self.video_size.width())
         self.camera_capture.set(4, self.video_size.height())
     
     def on_filter_change(self):           
         self.selected_filter = self.filter_combo.currentText()        
-        self.set_rgb_controls_visible(self.selected_filter == "Colorização")
-        self.set_threshold_controls_visible(self.selected_filter == "Binarização")
+        show_rgb_controls = self.selected_filter == "Colorização"
+        show_threshold_controls = self.selected_filter == "Binarização"
+        self.set_rgb_controls_visible(show_rgb_controls)
+        self.set_threshold_controls_visible(show_threshold_controls)
+        self.control_groupbox.setVisible(show_rgb_controls or show_threshold_controls)
+        
     
     def set_rgb_controls_visible(self, visible):
-        if (visible):
-            self.control_rlabel.show()
-            self.control_rslider.show()
-            self.control_glabel.show()
-            self.control_gslider.show()
-            self.control_blabel.show()
-            self.control_bslider.show()
-        else:
-            self.control_rlabel.hide()
-            self.control_rslider.hide()
-            self.control_glabel.hide()
-            self.control_gslider.hide()
-            self.control_blabel.hide()
-            self.control_bslider.hide()
+        self.control_rlabel.setVisible(visible)
+        self.control_rslider.setVisible(visible)
+        self.control_glabel.setVisible(visible)
+        self.control_gslider.setVisible(visible)
+        self.control_blabel.setVisible(visible)
+        self.control_bslider.setVisible(visible)
 
     def set_threshold_controls_visible(self, visible):
-        if(visible):
-            self.control_limitlabel.show()
-            self.control_limitslider.show()
-        else:
-            self.control_limitlabel.hide()
-            self.control_limitslider.hide()
+        self.control_limitlabel.setVisible(visible)
+        self.control_limitslider.setVisible(visible)
 
     def on_save_frame(self):
         if self.frame is not None:
@@ -380,4 +371,4 @@ if __name__ == '__main__':
     player = OpenCVFilters()
     player.on_filter_change()
     player.show()
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
