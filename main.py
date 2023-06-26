@@ -268,10 +268,10 @@ class OpenCVFilters(QtWidgets.QWidget):
         faces = self.detect_faces()
         # Aplica o filtro selecionado
         self.apply_filter()
-        # Desenha o sticker do rosto
-        self.draw_face_sticker(faces)
         # BGR -> RGB
         self.frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+        # Desenha o sticker do rosto
+        self.draw_face_sticker(faces)
         # Se for webcam, espelha a imagem
         if self.capture_type == CaptureType.camera:
             self.frame = cv2.flip(self.frame, 1)
