@@ -245,6 +245,7 @@ class OpenCVFilters(QtWidgets.QWidget):
                 x = event.x()
                 y = event.y()
                 self.stickers.append(Sticker(x, y, path, path[0].split('/').pop()))
+            
 
     def set_bvalue(self, value):
         self.bvalue = value
@@ -278,7 +279,7 @@ class OpenCVFilters(QtWidgets.QWidget):
             return False
                 
         showMask = False
-        if self.faceCascade is not None:
+        if self.faceCascade is not None and showMask and self.face_sticker is not None:
             gray = cv2.cvtColor(self.frame, cv2.COLOR_BGR2GRAY)
 
             # Detecta os rostos no frame
