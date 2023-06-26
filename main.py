@@ -316,19 +316,14 @@ class OpenCVFilters(QtWidgets.QWidget):
             self.frame = np.array(frame_pil)
 
     def draw_stickers(self):
-        for sticker in self.stickers:   
-            if(sticker.img.size[0] > sticker.img.size[1]):
-                x = 120
-                y = int(sticker.img.size[1]*x/sticker.img.size[0])
-            else:
-                y = 120
-                x = int(sticker.img.size[0]*y/sticker.img.size[1])
-            stc = sticker.img.resize((x, y))
+        for sticker in self.stickers:  
+            difx = int(sticker.img.size[0]/2)
+            dify = int(sticker.img.size[1]/2)
             frame_pil = Image.fromarray(self.frame)
             try:
-                frame_pil.paste(stc, (sticker.x-int(x/2), sticker.y-int(y/2)), stc)
+                frame_pil.paste(sticker.img, (sticker.x-difx, sticker.y-dify), sticker.img)
             except:
-                frame_pil.paste(stc, (sticker.x-int(x/2), sticker.y-int(y/2)))
+                frame_pil.paste(sticker.img, (sticker.x-difx, sticker.y-dify))
             self.frame = np.array(frame_pil)
 
     def apply_filter(self):
