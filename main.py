@@ -182,10 +182,10 @@ class OpenCVFilters(QtWidgets.QWidget):
     def capture_file(self):
         self.video_capture.release()
         path, _ = QtWidgets.QFileDialog.getOpenFileName(filter="Videos (*.mp4);;Imagens (*.png *.jpg *.jpeg)")
-        if path.endswith(('.png', '.jpg', '.jpeg')):
+        if path.lower().endswith(('.png', '.jpg', '.jpeg')):
             self.capture_type = CaptureType.image
             self.image = cv2.imread(path)
-        elif path.endswith('.mp4'):
+        elif path.lower().endswith('.mp4'):
             self.capture_type = CaptureType.video
             self.video_capture.open(path)
 
